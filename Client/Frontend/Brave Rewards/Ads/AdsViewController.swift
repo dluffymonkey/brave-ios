@@ -8,31 +8,6 @@ import BraveShared
 import Shared
 import pop
 
-public protocol Ad {
-  var handler: AdsViewController.ActionHandler { get set }
-  func makeAdView() -> UIView
-}
-
-struct RewardsAd: Ad {
-  var ad: AdNotification
-  var handler: AdsViewController.ActionHandler
-  
-  func makeAdView() -> UIView {
-    let adView = AdView()
-    adView.adContentButton.titleLabel.text = ad.title
-    adView.adContentButton.bodyLabel.text = ad.body
-    return adView
-  }
-}
-
-struct WalletConnectionAd: Ad {
-  var handler: AdsViewController.ActionHandler
-  
-  func makeAdView() -> UIView {
-    return WalletConnectionView()
-  }
-}
-
 public class AdsViewController: UIViewController {
   public typealias ActionHandler = (AdNotification, AdsNotificationHandler.Action) -> Void
   private var widthAnchor: NSLayoutConstraint?
@@ -47,8 +22,7 @@ public class AdsViewController: UIViewController {
   private let automaticDismissalInterval: TimeInterval = 30
   
   private var displayedAds: [UIView: DisplayedAd] = [:]
-  private(set) var visibleAdView: AdView?
-  private(set) var walletConnectionView: WalletConnectionView?
+  private(set) var visibleAdView: UIView?
   
   public override func loadView() {
     view = View(frame: UIScreen.main.bounds)
@@ -57,8 +31,16 @@ public class AdsViewController: UIViewController {
   private let dismissGestureName = "dismiss"
   private let swipeGestureName = "swipe"
   
-  public func display(some ad: Ad, animatedOut: @escaping () -> Void) {
-    let adView = ad.makeAdView()
+  public func display(ad: AdNotification, handler: @escaping ActionHandler, animatedOut: @escaping () -> Void) {
+    let adView: UIView
+    if ad.isWallet {
+      adView = WalletConnectionView()
+    } else {
+      let rewardAdView = AdView()
+      rewardAdView.adContentButton.titleLabel.text = ad.title
+      rewardAdView.adContentButton.bodyLabel.text = ad.body
+      adView = rewardAdView
+    }
     
     view.addSubview(adView)
     
@@ -84,12 +66,17 @@ public class AdsViewController: UIViewController {
     
     animateIn(adView: adView)
     
-    if let rewardsAd = ad as? RewardsAd, let rewardsAdView = adView as? AdView {
-      visibleAdView = rewardsAdView
-      displayedAds[adView] = DisplayedAd(ad: rewardsAd.ad, handler: rewardsAd.handler, animatedOut: animatedOut)
-      
+    displayedAds[adView] = DisplayedAd(ad: ad, handler: handler, animatedOut: animatedOut)
+    
+    if !ad.isWallet {
       setupTimeoutTimer(for: adView)
+    }
       
+    visibleAdView = adView
+    
+    if let walletPanel = adView as? WalletConnectionView {
+      walletPanel.addTarget(self, action: #selector(tappedWalletConnectionView(_:)), for: .touchUpInside)
+    } else if let rewardsAdView = adView as? AdView {
       rewardsAdView.adContentButton.addTarget(self, action: #selector(touchDownAdView(_:)), for: .touchDown)
       rewardsAdView.adContentButton.addTarget(self, action: #selector(touchUpOutsideAdView(_:)), for: .touchUpOutside)
       rewardsAdView.adContentButton.addTarget(self, action: #selector(tappedAdView(_:)), for: .touchUpInside)
@@ -104,60 +91,7 @@ public class AdsViewController: UIViewController {
       swipePanGesture.name = swipeGestureName
       swipePanGesture.delegate = self
       rewardsAdView.addGestureRecognizer(swipePanGesture)
-    } else if let walletAdPanel = adView as? WalletConnectionView {
-      walletConnectionView = walletAdPanel
-      walletAdPanel.addTarget(self, action: #selector(dismissTappedWalletAdView), for: .touchUpInside)
     }
-  }
-  
-  public func display(ad: AdNotification, handler: @escaping ActionHandler, animatedOut: @escaping () -> Void) {
-    let adView = AdView()
-    adView.adContentButton.titleLabel.text = ad.title
-    adView.adContentButton.bodyLabel.text = ad.body
-    
-    view.addSubview(adView)
-    
-    adView.snp.makeConstraints {
-      $0.leading.greaterThanOrEqualTo(view).inset(8)
-      $0.trailing.lessThanOrEqualTo(view).inset(8)
-      $0.centerX.equalTo(view)
-      $0.top.equalTo(view.safeAreaLayoutGuide.snp.top)
-      $0.top.greaterThanOrEqualTo(view).offset(4) // Makes sure in landscape its at least 4px from the top
-      
-      if UIDevice.current.userInterfaceIdiom != .pad {
-        $0.width.equalTo(view).priority(.high)
-      }
-    }
-    
-    if UIDevice.current.userInterfaceIdiom == .pad {
-      widthAnchor = adView.widthAnchor.constraint(equalToConstant: 0.0)
-      widthAnchor?.priority = .defaultHigh
-      widthAnchor?.isActive = true
-    }
-    
-    view.layoutIfNeeded()
-    
-    animateIn(adView: adView)
-    
-    visibleAdView = adView
-    displayedAds[adView] = DisplayedAd(ad: ad, handler: handler, animatedOut: animatedOut)
-    
-    setupTimeoutTimer(for: adView)
-    
-    adView.adContentButton.addTarget(self, action: #selector(touchDownAdView(_:)), for: .touchDown)
-    adView.adContentButton.addTarget(self, action: #selector(touchUpOutsideAdView(_:)), for: .touchUpOutside)
-    adView.adContentButton.addTarget(self, action: #selector(tappedAdView(_:)), for: .touchUpInside)
-    adView.openSwipeButton.addTarget(self, action: #selector(tappedOpen(_:)), for: .touchUpInside)
-    adView.dislikeSwipeButton.addTarget(self, action: #selector(tappedDisliked(_:)), for: .touchUpInside)
-    let dismissPanGesture = UIPanGestureRecognizer(target: self, action: #selector(dismissPannedAdView(_:)))
-    dismissPanGesture.name = dismissGestureName
-    dismissPanGesture.delegate = self
-    adView.addGestureRecognizer(dismissPanGesture)
-    
-    let swipePanGesture = UIPanGestureRecognizer(target: self, action: #selector(swipePannedAdView(_:)))
-    swipePanGesture.name = swipeGestureName
-    swipePanGesture.delegate = self
-    adView.addGestureRecognizer(swipePanGesture)
   }
   
   public override func viewWillLayoutSubviews() {
@@ -207,8 +141,10 @@ public class AdsViewController: UIViewController {
     })
   }
   
-  @objc private func dismissTappedWalletAdView() {
-    print("hello")
+  @objc private func tappedWalletConnectionView(_ sender: WalletConnectionView) {
+    guard let displayedAd = displayedAds[sender] else { return }
+    hide(adView: sender)
+    displayedAd.handler(displayedAd.ad, .connectWallet)
   }
   
   @objc private func touchDownAdView(_ sender: AdContentButton) {
@@ -427,17 +363,16 @@ extension AdsViewController {
       return
     }
     
-    let rewardsAd = RewardsAd(ad: notification) { notification, action in
+    adsViewController.display(ad: notification) { notification, action in
       completion(action, targetURL)
-    }
-    adsViewController.display(some: rewardsAd) {
+    } animatedOut: {
       adsViewController.view.removeFromSuperview()
     }
   }
 }
 
 extension AdsViewController {
-  public static func displayWalletConnectionAd(on presentingController: UIViewController, completion: @escaping (AdsNotificationHandler.Action) -> Void) {
+  public static func displayWalletConnectionPanel(on presentingController: UIViewController, completion: @escaping (AdsNotificationHandler.Action) -> Void) {
     let adsViewController = AdsViewController()
     
     guard let window = presentingController.view.window else {
@@ -449,15 +384,14 @@ extension AdsViewController {
     }
     
     let notification = AdNotification.customAd(
-      title: Strings.Ads.myFirstAdTitle,
-      body: Strings.Ads.myFirstAdBody,
-      url: "https://brave.com/my-first-ad"
+      title: "",
+      body: "",
+      url: AdNotification.walletNotificationURL
     )
     
-    let walletConnectionAd = WalletConnectionAd { notification, action in
+    adsViewController.display(ad: notification) { notification, action in
       completion(action)
-    }
-    adsViewController.display(some: walletConnectionAd) {
+    } animatedOut: {
       adsViewController.view.removeFromSuperview()
     }
   }
