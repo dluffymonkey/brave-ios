@@ -137,14 +137,18 @@ class NewTabPageViewController: UIViewController {
                     let lastWeekRiskiestWebsite = BlockedResource.riskiestWebsite(inLastDays: 7)
                     let allTimeRiskiestWebsite = BlockedResource.riskiestWebsite(inLastDays: nil)
                     
+                    
+                    let allTimeListTracker = BlockedResource.allTimeMostFrequentTrackers()
+                    
                     // FIXME: VPNAlerts flag
-                    let allTimeListTracker = BlockedResource.allTimeMostFrequentTrackers(includeVPNAlerts: true).map {
-                        PrivacyReportsItem(domainOrTracker: $0.0, count: $0.1, source: $0.2)
-                    }
+                    let allTimeVPN = BraveVPNAlert.trackerCounts()
                     
                     let allTimeListWebsites = BlockedResource.allTimeMostRiskyWebsites().map {
                         PrivacyReportsItem(domainOrTracker: $0.domain, faviconUrl: $0.faviconUrl, count: $0.count)
                     }
+                    
+                    let allAlerts: [PrivacyReportsItem] =
+                        PrivacyReportsItem.merge(shieldItems: allTimeListTracker, vpnItems: allTimeVPN)
                     
                     let last = BraveVPNAlert.last(3)
                     
@@ -152,7 +156,7 @@ class NewTabPageViewController: UIViewController {
                                                   lastWeekRiskiestWebsite: lastWeekRiskiestWebsite,
                                                   allTimeMostFrequentTracker: allTimeMostFrequentTracker,
                                                   allTimeRiskiestWebsite: allTimeRiskiestWebsite,
-                                                  allTimeListTrackers: allTimeListTracker,
+                                                  allTimeListTrackers: allAlerts,
                                                   allTimeListWebsites: allTimeListWebsites,
                                                   lastVPNAlerts: last)
                     
