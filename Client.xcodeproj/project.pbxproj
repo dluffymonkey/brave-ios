@@ -7164,7 +7164,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = F84B21DD1A090F8100AAB793 /* Build configuration list for PBXNativeTarget "Client" */;
 			buildPhases = (
-				F979BE0F25BCC098009B6ACF /* Build packaged javascript files */,
 				2779B7052159297D0044A102 /* Run SwiftLint */,
 				0A43293F21B1CB810041625B /* Headers */,
 				F84B21BA1A090F8100AAB793 /* Sources */,
@@ -7831,30 +7830,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# MaterialComponents.framework doesn't seem to have a `CFBundleShortVersionString`\n/usr/libexec/PlistBuddy -c 'Add :CFBundleShortVersionString string 1.0' \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/MaterialComponents.framework/Info.plist\" || echo \"CFBundleShortVersionString already set\"\n";
-		};
-		F979BE0F25BCC098009B6ACF /* Build packaged javascript files */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Build packaged javascript files";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(SRCROOT)/Client/Assets/MainFrameAtDocumentStart.js",
-				"$(SRCROOT)/Client/Assets/MainFrameAtDocumentEnd.js",
-				"$(SRCROOT)/Client/Assets/AllFramesAtDocumentStart.js",
-				"$(SRCROOT)/Client/Assets/AllFramesAtDocumentEnd.js",
-				"$(SRCROOT)/Client/Assets/AllFramesAtDocumentStartSandboxed.js",
-				"$(SRCROOT)/Client/Assets/AllFramesAtDocumentEndSandboxed.js",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "npm run build\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
